@@ -66,8 +66,16 @@ jobs:
     steps:
       # (speed) Intentionally omitted, unnecessary, run_install_desired_npm.
       - checkout
-      # (speed) Ignore scripts to skip the Lerna build stuff for linting.
-      - run: npm install-test --prefix ./docs
+      - restore_cache:
+          key: dependency-cache-{{ checksum "docs/package.json" }}
+      - run:
+          name: install-npm
+          command: cd docs && npm install
+      - save_cache:
+          key: dependency-cache-{{ checksum "docs/package.json" }}
+          paths:
+            - ./docs/node_modules
+      - run: cd docs && npm run ci
 
 workflows:
   version: 2
