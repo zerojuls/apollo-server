@@ -6,7 +6,8 @@
   "scripts": {
     "compile": "tsc",
     "watch": "tsc -w",
-    "prepublish": "npm run compile"
+    "prepublish": "npm run compile",
+    "test": "jest --verbose"
   },
   "repository": {
     "type": "git",
@@ -45,7 +46,8 @@
     "lodash": "^4.17.10",
     "quick-lru": "^1.1.0",
     "subscriptions-transport-ws": "^0.9.11",
-    "ws": "^5.2.0"
+    "ws": "^5.2.0",
+    "iterall": "^1.2.2"
   },
   "devDependencies": {
     "@types/fibers": "0.0.30",
@@ -67,5 +69,22 @@
   "typings": "dist/index.d.ts",
   "typescript": {
     "definition": "dist/index.d.ts"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.(ts|js)$": "ts-jest"
+    },
+    "moduleFileExtensions": [
+      "ts",
+      "js",
+      "json"
+    ],
+    "testRegex": "apollo-server-core/src/__tests__/.*.(spec|test).(js|ts)?$",
+    "globals": {
+      "ts-jest": {
+        "skipBabel": true
+      }
+    }
   }
 }

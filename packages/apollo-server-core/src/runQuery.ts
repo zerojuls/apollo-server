@@ -5,13 +5,19 @@ import {
   DocumentNode,
   parse,
   validate,
-  execute,
   ExecutionArgs,
   getOperationAST,
   GraphQLError,
   specifiedRules,
   ValidationContext,
 } from 'graphql';
+
+import {
+  execute,
+  DeferredExecutionResult,
+  isDeferredExecutionResult,
+  ExecutionPatchResult,
+} from './execute';
 
 import { Request } from 'apollo-server-env';
 
@@ -37,6 +43,11 @@ export interface GraphQLResponse {
   data?: object;
   errors?: Array<GraphQLError & object>;
   extensions?: object;
+}
+
+export interface DeferredGraphQLResponse {
+  initialResponse: GraphQLResponse;
+  deferredPatches: AsyncIterable<ExecutionPatchResult>;
 }
 
 export interface QueryOptions {
@@ -75,12 +86,16 @@ function isQueryOperation(query: DocumentNode, operationName: string) {
   return operationAST.operation === 'query';
 }
 
-export function runQuery(options: QueryOptions): Promise<GraphQLResponse> {
+export function runQuery(
+  options: QueryOptions,
+): Promise<GraphQLResponse | DeferredGraphQLResponse> {
   // Fiber-aware Promises run their .then callbacks in Fibers.
   return Promise.resolve().then(() => doRunQuery(options));
 }
 
-function doRunQuery(options: QueryOptions): Promise<GraphQLResponse> {
+function doRunQuery(
+  options: QueryOptions,
+): Promise<GraphQLResponse | DeferredGraphQLResponse> {
   if (options.queryString && options.parsedQuery) {
     throw new Error('Only supply one of queryString and parsedQuery');
   }
@@ -166,7 +181,9 @@ function doRunQuery(options: QueryOptions): Promise<GraphQLResponse> {
         } finally {
           parsingDidEnd(...(graphqlParseErrors || []));
           if (graphqlParseErrors) {
-            return Promise.resolve({ errors: graphqlParseErrors });
+            return Promise.resolve({
+              errors: graphqlParseErrors,
+            } as GraphQLResponse);
           }
         }
       }
@@ -241,21 +258,32 @@ function doRunQuery(options: QueryOptions): Promise<GraphQLResponse> {
             // Options: PREPROCESSING_FAILED, GRAPHQL_RUNTIME_CHECK_FAILED
 
             errors: [fromGraphQLError(executionError)],
-          } as ExecutionResult;
+          } as ExecutionResult | DeferredExecutionResult;
         })
         .then(result => {
+          let executionResult: ExecutionResult;
+          let patches: AsyncIterable<ExecutionPatchResult>;
+
+          if (isDeferredExecutionResult(result)) {
+            // TODO: Deferred execution should be disabled if transport does not support it
+            executionResult = (result as DeferredExecutionResult).initialResult;
+            patches = (result as DeferredExecutionResult).deferredPatches;
+          } else {
+            executionResult = result;
+          }
+
           let response: GraphQLResponse = {
-            data: result.data,
+            data: executionResult.data,
           };
 
-          if (result.errors) {
-            response.errors = formatApolloErrors([...result.errors], {
+          if (executionResult.errors) {
+            response.errors = formatApolloErrors([...executionResult.errors], {
               formatter: options.formatError,
               debug,
             });
           }
 
-          executionDidEnd(...(result.errors || []));
+          executionDidEnd(...(executionResult.errors || []));
 
           const formattedExtensions = extensionStack.format();
           if (Object.keys(formattedExtensions).length > 0) {

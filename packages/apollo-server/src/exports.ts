@@ -10,4 +10,5 @@ export {
   ForbiddenError,
   UserInputError,
   gql,
+  GraphQLDeferDirective,
 } from 'apollo-server-core';

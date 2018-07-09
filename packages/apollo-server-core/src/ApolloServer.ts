@@ -1,7 +1,6 @@
 import { makeExecutableSchema, addMockFunctionsToSchema } from 'graphql-tools';
 import { Server as HttpServer } from 'http';
 import {
-  execute,
   GraphQLSchema,
   subscribe,
   ExecutionResult,
@@ -10,6 +9,7 @@ import {
   ValidationContext,
   FieldDefinitionNode,
 } from 'graphql';
+import { execute } from './execute';
 import { GraphQLExtension } from 'graphql-extensions';
 import { EngineReportingAgent } from 'apollo-engine-reporting';
 import { InMemoryLRUCache } from 'apollo-datasource-rest';
@@ -19,6 +19,7 @@ import { GraphQLUpload } from 'apollo-upload-server';
 import {
   SubscriptionServer,
   ExecutionParams,
+  ServerOptions,
 } from 'subscriptions-transport-ws';
 
 // use as default persisted query store
@@ -289,7 +290,7 @@ export class ApolloServerBase {
           return { ...connection, context };
         },
         keepAlive,
-      },
+      } as ServerOptions, //TODO: Resolve type errors
       {
         server,
         path,
